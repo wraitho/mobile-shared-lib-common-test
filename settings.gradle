@@ -1,0 +1,4 @@
+rootProject.name = 'mobile-shared-lib-test'
+
+
+enableFeaturePreview('GRADLE_METADATA')

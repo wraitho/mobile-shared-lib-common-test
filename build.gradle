@@ -1,0 +1,89 @@
+plugins {
+    id 'org.jetbrains.kotlin.multiplatform' version '1.3.72'
+}
+repositories {
+    mavenCentral()
+}
+group 'com.example'
+version '0.0.1'
+
+apply plugin: 'maven-publish'
+
+kotlin {
+    targets {
+        final def iOSTarget = System.getenv('SDK_NAME')?.startsWith("iphoneos") \
+                              ? presets.iosArm64 : presets.iosX64
+
+        fromPreset(iOSTarget, 'ios') {
+            binaries {
+                framework('MultiCore')
+            }
+        }
+
+        fromPreset(presets.jvm, 'android')
+    }
+
+//    jvm()
+//    // This is for iPhone simulator
+//    // Switch here to iosArm64 (or iosArm32) to build library for iPhone device
+//    iosX64("ios") {
+//        binaries {
+//            framework()
+//        }
+//    }
+
+    sourceSets {
+        commonMain {
+            dependencies {
+                implementation kotlin('stdlib-common')
+            }
+        }
+//        commonTest {
+//            dependencies {
+//                implementation kotlin('test-common')
+//                implementation kotlin('test-annotations-common')
+//            }
+//        }
+        androidMain {
+            dependencies {
+                implementation kotlin('stdlib')
+            }
+        }
+//        androidTest {
+//            dependencies {
+//                implementation kotlin('test')
+//                implementation kotlin('test-junit')
+//            }
+//        }
+        iosMain {
+        }
+//        iosTest {
+//        }
+    }
+}
+
+configurations {
+    compileClasspath
+}
+
+
+task packForXcode(type: Sync) {
+    final File frameworkDir = new File(buildDir, "xcode-frameworks")
+    final String mode = project.findProperty("XCODE_CONFIGURATION")?.toUpperCase() ?: 'DEBUG'
+    final def framework = kotlin.targets.ios.binaries.getFramework("MultiCore", mode)
+
+    inputs.property "mode", mode
+    dependsOn framework.linkTask
+
+    from { framework.outputFile.parentFile }
+    into frameworkDir
+
+    doLast {
+        new File(frameworkDir, 'gradlew').with {
+            text = "#!/bin/bash\nexport 'JAVA_HOME=${System.getProperty("java.home")}'\ncd '${rootProject.rootDir}'\n./gradlew \$@\n"
+            setExecutable(true)
+        }
+    }
+}
+
+tasks.build.dependsOn packForXcode
